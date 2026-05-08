@@ -55,11 +55,10 @@ Only **3 files** are modified from upstream. When merging upstream updates, thes
 **Why**: Enables per-user install without admin privileges.
 
 ### 2. `src-tauri/tauri.conf.json`
-- Updater plugin removed entirely (no in-app auto-update)
-- `createUpdaterArtifacts` set to `false`
-- No signing keys needed for build
+- Updater plugin enabled with fork's own signing pubkey, single GitHub release endpoint
+- `createUpdaterArtifacts` set to `true`
 
-**Why**: This fork does not use the Tauri updater. Users download installers manually from GitHub Releases.
+**Why**: This fork uses its own updater signing keys (not upstream's). The endpoint points to this fork's GitHub Releases updater tag.
 
 ### 3. `.github/workflows/release.yml`
 Complete rewrite from upstream. Key differences:
@@ -81,7 +80,7 @@ When merging upstream/main into main produces conflicts, resolve as follows:
 | File | Strategy |
 |------|----------|
 | `tauri.windows.conf.json` | Keep `"currentUser"`, accept all other upstream changes |
-| `tauri.conf.json` | Keep updater plugin removed and `createUpdaterArtifacts: false`, accept all other upstream version/plugin changes |
+| `tauri.conf.json` | Keep fork's own pubkey and updater endpoints, accept all other upstream version/plugin changes |
 | `release.yml` | Keep the entire fork version (Windows-only). If upstream adds new build features (e.g. new attestation step), cherry-pick only those additions into the Windows-only structure |
 | All other files | Accept upstream version unconditionally |
 

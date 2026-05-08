@@ -17,7 +17,7 @@
     "copyright": "GNU General Public License v3.0",
     "category": "DeveloperTool",
     "shortDescription": "Clash Verge Rev",
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": true
   },
   "build": {
     "beforeBuildCommand": "pnpm run web:build",
@@ -29,10 +29,17 @@
   "productName": "Clash Verge",
   "identifier": "io.github.clash-verge-rev.clash-verge-rev",
   "plugins": {
-"deep-link": {
+    "deep-link": {
       "desktop": {
         "schemes": ["clash", "clash-verge"]
       }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/rede97/clash-verge-rev/releases/download/updater/update.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxOTJDNDc0QjM4NzQ0RkQKUldUOVJJZXpkTVNTa1c0b08wQ0k2aEo1M2VwOFYvelVWdmM5WTYrb2t4V0lPaEhsUkFFa2wxREoK"
     }
   },
   "app": {
