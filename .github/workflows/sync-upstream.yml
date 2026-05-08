@@ -2,7 +2,7 @@ name: Sync Upstream Release
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch:
 
 permissions: write-all
@@ -85,6 +85,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `⚠️ Merge conflict when syncing upstream tag ${{ steps.check.outputs.new_tag }}`,
+              assignees: ['rede97'],
               body: [
                 '## Merge Conflict',
                 '',
