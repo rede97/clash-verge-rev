@@ -12,15 +12,27 @@ This is a fork of [Clash Verge Rev](https://github.com/clash-verge-rev/clash-ver
 
 1. Automatically detect new upstream releases (via `sync-upstream.yml`, runs every 3 hours)
 2. Merge upstream code into `main` branch while preserving fork-specific customizations
-3. Build Windows x64 + ARM64 NSIS user-mode installers via GitHub Actions
-4. Publish built installers to GitHub Releases
+3. Publish releases **aligned with upstream tags** (same `vX.Y.Z` version numbers, pushed by the sync workflow)
+4. Build Windows x64 + ARM64 NSIS user-mode installers via GitHub Actions
+5. Publish built installers to **this fork's own** GitHub Releases
+6. Serve app auto-updates **exclusively from this fork's Releases** — never from upstream
+
+## Independent Update Channel (Self-Hosted)
+
+The fork is a standalone application regarding updates:
+
+- **Updater endpoint** (`src-tauri/tauri.conf.json`): `https://github.com/rede97/clash-verge-rev/releases/download/updater/update.json` — points to THIS repo, not upstream
+- **Signing key**: fork's own Tauri updater keypair (fork's pubkey in `tauri.conf.json`, private key in repo secret `TAURI_SIGNING_PRIVATE_KEY`). Upstream signatures are NOT trusted by this fork
+- **Update chain**: tag push → `release.yml` builds NSIS + publishes release → `release-update` job runs `scripts/updater.mjs` → generates `update.json` from the fork's own release assets (`.exe` + `.exe.sig`) → uploads to the `updater` tag release
+- **NEVER** change the updater endpoint or pubkey back to upstream values when merging upstream updates
 
 ## Branch Strategy
 
 | Branch | Purpose |
 |--------|---------|
-| `dev` | Mirror of upstream `dev`, kept in sync. DO NOT commit fork-specific changes here. |
-| `main` | Fork's release branch. Based on upstream `main` + fork customizations. Tags trigger builds. |
+| `main` | Fork's release branch (also the default branch). Based on upstream `main` + fork customizations. Tags trigger builds. |
+
+> The upstream `dev` mirror branch has been **deleted** from this fork. Only `main` exists. Upstream `dev` (daily autobuild preview channel) is intentionally NOT tracked — this fork only publishes stable releases.
 
 ## Automated Workflow
 
@@ -42,11 +54,17 @@ sync-upstream.yml (every 3h)
         └─► release.yml builds only:
               - Windows x64 NSIS (currentUser)
               - Windows ARM64 NSIS (currentUser)
+              │
+              └─► publish release (body links point to THIS fork's Releases)
+                    │
+                    └─► release-update job → scripts/updater.mjs
+                          → upload update.json to `updater` tag
+                          → installed apps update from this fork
 ```
 
 ## Fork-Specific Changes (vs Upstream)
 
-Only **3 files** are modified from upstream. When merging upstream updates, these changes MUST be preserved:
+Only **4 files** are modified from upstream. When merging upstream updates, these changes MUST be preserved:
 
 ### 1. `src-tauri/tauri.windows.conf.json`
 ```json
@@ -62,10 +80,16 @@ Only **3 files** are modified from upstream. When merging upstream updates, thes
 
 ### 3. `.github/workflows/release.yml`
 Complete rewrite from upstream. Key differences:
-- **Removed**: macOS builds, Linux builds (amd64/arm64/armv7), Fixed WebView2 builds, Winget submission, Telegram notification, updater signing keys, `includeUpdaterJson`, `release-update` job
+- **Removed**: macOS builds, Linux builds (amd64/arm64/armv7), Fixed WebView2 builds, Winget submission, Telegram notification, upstream updater signing keys
 - **Kept**: Windows x64 + ARM64 NSIS builds only
-- **Release body**: Only lists Windows user-mode download links
+- **Added**: `release-update` job (runs `pnpm updater` after publishing) to generate `update.json` for this fork's self-hosted update channel
+- **Release body**: Only lists Windows user-mode download links, pointing to this fork's Releases (`${{ github.server_url }}/${{ github.repository }}`), never upstream's
 - **Branch check**: Tags must be from `main` branch (not `dev`)
+
+### 4. `.github/workflows/autobuild.yml`
+- Upstream `schedule` trigger (cron, twice daily) **removed**; only `workflow_dispatch` kept
+
+**Why**: This fork does not publish daily autobuild previews. Keeping the cron would waste Actions minutes and create unwanted `autobuild` releases on the default branch.
 
 ## Merge Conflict Resolution Strategy
 
@@ -81,7 +105,8 @@ When merging upstream/main into main produces conflicts, resolve as follows:
 |------|----------|
 | `tauri.windows.conf.json` | Keep `"currentUser"`, accept all other upstream changes |
 | `tauri.conf.json` | Keep fork's own pubkey and updater endpoints, accept all other upstream version/plugin changes |
-| `release.yml` | Keep the entire fork version (Windows-only). If upstream adds new build features (e.g. new attestation step), cherry-pick only those additions into the Windows-only structure |
+| `release.yml` | Keep the entire fork version (Windows-only + `release-update` job + fork-only download URLs). If upstream adds new build features (e.g. new attestation step), cherry-pick only those additions into the Windows-only structure |
+| `autobuild.yml` | Keep the trigger block WITHOUT `schedule`. Accept all other upstream changes to this file |
 | All other files | Accept upstream version unconditionally |
 
 ### Example conflict resolution for release.yml

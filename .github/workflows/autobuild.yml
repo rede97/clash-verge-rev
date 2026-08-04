@@ -2,9 +2,8 @@ name: Auto Build
 
 on:
   workflow_dispatch:
-  schedule:
-    # UTC+8 12:00, 18:00 -> UTC 4:00, 10:00
-    - cron: '0 4,10 * * *'
+# Fork note: upstream schedule trigger removed. This fork only publishes stable
+# releases from main; scheduled autobuilds are disabled to save Actions minutes.
 permissions: write-all
 env:
   TAG_NAME: autobuild
