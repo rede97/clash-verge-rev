@@ -27,32 +27,38 @@ jobs:
       - name: Add upstream remote
         run: |
           git remote add upstream https://github.com/clash-verge-rev/clash-verge-rev.git
-          git fetch upstream --tags
+          git fetch upstream main
+          # --force: fork tags (vX.Y.Z, updater) already exist locally; overwriting
+          # them in this CI workspace is safe (they are never pushed back).
+          # Without --force, git exits non-zero on clobbered tags and kills the job.
+          git fetch upstream --tags --force
 
       - name: Find new upstream tag
         id: check
         run: |
           echo "Fetching tags from origin and upstream..."
 
-          # Get all tags from origin and upstream, compare to find new ones
+          # Get all tags from origin and upstream.
+          # Filter out dereferenced annotated-tag entries (refs/tags/X^{}) to avoid
+          # polluting the comparison.
           origin_tags=$(git tag -l 'v*' --sort=-version:refname)
-          upstream_tags=$(git ls-remote --tags upstream 'v*' | awk '{print $2}' | sed 's|refs/tags/||' | sort -Vr)
+          upstream_tags=$(git ls-remote --tags upstream 'v*' | awk '{print $2}' | sed 's|refs/tags/||' | grep -vF '^{}' | sort -Vr)
 
           echo "=== Origin tags ==="
           echo "$origin_tags"
           echo "=== Upstream tags ==="
           echo "$upstream_tags"
 
-          # Find tags in upstream but not in origin
-          for tag in $upstream_tags; do
-            if ! echo "$origin_tags" | grep -qx "$tag"; then
-              echo "Found new upstream tag: $tag"
-              echo "new_tag=$tag" >> $GITHUB_OUTPUT
-              break
-            fi
-          done
+          # Only compare the LATEST upstream tag. Fork always merges upstream/main
+          # (HEAD), so intermediate skipped tags (e.g. a missed v2.5.1) cannot be
+          # faithfully rebuilt and are intentionally ignored.
+          latest_upstream=$(echo "$upstream_tags" | head -n 1)
+          echo "Latest upstream tag: $latest_upstream"
 
-          if [ -z "${new_tag:-}" ]; then
+          if [ -n "$latest_upstream" ] && ! echo "$origin_tags" | grep -qx "$latest_upstream"; then
+            echo "Found new upstream tag: $latest_upstream"
+            echo "new_tag=$latest_upstream" >> $GITHUB_OUTPUT
+          else
             echo "No new upstream tags found."
             echo "new_tag=" >> $GITHUB_OUTPUT
           fi
@@ -125,6 +131,8 @@ jobs:
         if: steps.merge.outputs.conflict == 'false'
         run: |
           TAG="${{ steps.check.outputs.new_tag }}"
-          git tag "$TAG"
+          # -f: the tag may already exist locally after 'git fetch upstream --tags --force'
+          # (pointing at upstream's commit). Retag it on the merged fork main HEAD.
+          git tag -f "$TAG"
           git push origin "$TAG"
           echo "Pushed tag $TAG - release workflow triggered."

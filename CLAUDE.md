@@ -39,7 +39,8 @@ The fork is a standalone application regarding updates:
 ```
 sync-upstream.yml (every 3h)
   │
-  ├─► Check upstream for new tags not present in this fork
+  ├─► Compare the LATEST upstream vX.Y.Z tag against this fork's tags
+  │    (intermediate skipped tags are intentionally ignored)
   │
   ├─► No new tag → skip
   │
